@@ -1,0 +1,16 @@
+# ⚠️  Full cluster-admin. A token for this ServiceAccount is effectively cluster
+#     root — anyone holding it can do anything, including reading all secrets and
+#     deleting the cluster. Only use for trusted operator tooling, store the
+#     token in a secrets manager, and prefer short-lived tokens.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mcp-full-access
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: mcp-full-access
+    namespace: kubernetes-mcp

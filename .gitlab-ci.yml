@@ -1,0 +1,96 @@
+stages:
+  - test
+  - build
+
+variables:
+  GO_VERSION: "1.25"
+  ENVTEST_K8S_VERSION: "1.34.0"
+
+# --- Unit tests -------------------------------------------------------------
+unit-tests:
+  stage: test
+  image: golang:1.25
+  script:
+    - go vet ./...
+    - go test ./internal/... -race -count=1
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# --- E2E against a real kube-apiserver via envtest --------------------------
+e2e-envtest:
+  stage: test
+  image: golang:1.25
+  script:
+    - go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+    - export KUBEBUILDER_ASSETS="$(setup-envtest use ${ENVTEST_K8S_VERSION} -p path)"
+    - go test ./test/e2e/... -race -count=1 -v
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# --- Helm chart lint + template validation ----------------------------------
+helm-validate:
+  stage: test
+  image:
+    name: alpine/helm:3.16.2
+    entrypoint: [""]
+  script:
+    - helm lint deploy/helm/kubernetes-mcp
+    - helm template t deploy/helm/kubernetes-mcp > /dev/null
+    - helm template t deploy/helm/kubernetes-mcp --set localCluster.rbac.tier=fine-grained --set 'localCluster.rbac.fineGrained.namespaces={team-a}' > /dev/null
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# --- E2E against a real kind cluster with running workloads ------------------
+# Slower; runs on the default branch or when the MR carries the label `e2e-kind`.
+e2e-kind:
+  stage: test
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - apk add --no-cache go bash curl
+    - curl -Lo /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.30.0/kind-linux-amd64 && chmod +x /usr/local/bin/kind
+    - curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/v${ENVTEST_K8S_VERSION}/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl
+    - export KUBECONFIG="$(bash test/e2e/kind/setup-kind.sh)"
+    - go test -tags e2e_kind ./test/e2e/kind/... -count=1 -v
+  after_script:
+    - kind delete cluster --name kmcp-e2e || true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /e2e-kind/'
+
+# --- Multi-arch image build + push ------------------------------------------
+# Builds a linux/amd64 + linux/arm64 manifest and pushes
+# registry.gitlab.com/ai-guard/kubernetes-mcp:<pipeline-id> (+ :latest).
+# Pin that $CI_PIPELINE_ID as the image version in the `environments` repo.
+image-build-and-push:
+  stage: build
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_BUILDKIT: "1"
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker run --privileged --rm tonistiigi/binfmt --install arm64
+    - docker buildx create --use --name builder
+    - docker buildx inspect --bootstrap
+    - >
+      docker buildx build
+      --platform linux/amd64,linux/arm64
+      --build-arg VERSION="${CI_PIPELINE_ID}"
+      -t "${CI_REGISTRY_IMAGE}:${CI_PIPELINE_ID}"
+      -t "${CI_REGISTRY_IMAGE}:latest"
+      --push "${CI_PROJECT_DIR}"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

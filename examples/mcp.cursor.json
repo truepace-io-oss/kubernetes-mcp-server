@@ -1,0 +1,17 @@
+{
+  "//": "Cursor (~/.cursor/mcp.json or project .cursor/mcp.json): omit 'type'; use ${env:NAME} for interpolation.",
+  "mcpServers": {
+    "k8s-tools": {
+      "url": "https://kubernetes-mcp.intern.tools.averion.zone/mcp"
+    },
+    "k8s-private": {
+      "url": "https://kubernetes-mcp.private.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:PRIVATE_INGRESS_TOKEN}"
+      }
+    },
+    "k8s-homelab": {
+      "url": "https://kubernetes-mcp.homelab.example.com/mcp"
+    }
+  }
+}

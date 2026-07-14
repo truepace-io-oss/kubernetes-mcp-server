@@ -1,0 +1,32 @@
+# kubernetes-mcp server configuration.
+#
+# Authentication to every cluster is a Kubernetes ServiceAccount credential.
+# The server has NO auth logic of its own — Kubernetes RBAC is the only gate.
+
+listenAddr: "0.0.0.0:9090"   # KMCP_LISTEN_ADDR
+logLevel: "info"             # debug|info|warn|error ; KMCP_LOG_LEVEL
+readOnly: false              # global kill-switch for all mutating tools ; KMCP_READ_ONLY
+defaultCluster: "local"      # used when a tool call omits `cluster` ; KMCP_DEFAULT_CLUSTER
+
+clusters:
+  # (a) The cluster this pod runs in — uses the projected SA token automatically.
+  - name: local
+    inCluster: true
+    readOnly: false
+    defaultNamespace: ""     # "" means "all namespaces" for list operations
+
+  # (b) A remote cluster reached with an explicit SA token + CA.
+  #     Prefer *File forms: they are re-read on rotation (projected / ESO tokens).
+  - name: customer-a
+    server: "https://api.customer-a.example.com:6443"
+    certificateAuthorityFile: "/etc/kmcp/clusters/customer-a/ca.crt"
+    tokenFile: "/etc/kmcp/clusters/customer-a/token"
+    readOnly: true
+    defaultNamespace: ""
+    insecureSkipTLSVerify: false   # keep false in production
+
+  # (c) A cluster selected from a mounted kubeconfig context.
+  - name: homelab
+    kubeconfigFile: "/etc/kmcp/kubeconfig"
+    context: "homelab"
+    readOnly: false

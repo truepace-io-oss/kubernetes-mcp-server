@@ -1,0 +1,32 @@
+# Read-only access across the cluster. Deliberately EXCLUDES secrets — reading
+# Secret values is a common exfiltration path. Add narrowly if you truly need it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mcp-read-only
+rules:
+  - apiGroups: [""]
+    resources:
+      - namespaces
+      - nodes
+      - pods
+      - pods/log
+      - services
+      - configmaps
+      - events
+      - endpoints
+      - persistentvolumeclaims
+      - replicationcontrollers
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]

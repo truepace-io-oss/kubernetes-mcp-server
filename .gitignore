@@ -1,0 +1,21 @@
+# Binaries
+/bin/
+/dist/
+kubernetes-mcp
+
+# Test artifacts
+*.out
+*.test
+coverage.*
+
+# Local config / secrets — never commit real cluster creds
+/kubeconfig
+*.env
+.env
+/etc-kmcp/
+
+# envtest downloaded assets
+/.envtest/
+
+# OS / editor
+.DS_Store

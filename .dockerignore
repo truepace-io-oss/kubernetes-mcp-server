@@ -1,0 +1,13 @@
+.git
+.gitignore
+*.md
+docs/
+deploy/
+examples/
+test/
+bin/
+dist/
+.envtest/
+*.out
+*.test
+.env

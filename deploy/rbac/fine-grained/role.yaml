@@ -1,0 +1,22 @@
+# Example fine-grained Role: read most things in the namespace, plus a few
+# targeted mutations (restart pods, scale/patch deployments). It intentionally
+# does NOT grant secrets read or rbac write (both are privilege-escalation
+# vectors). Adjust to taste.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mcp-app-operator
+  namespace: team-a
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "configmaps", "services", "events", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale", "statefulsets"]
+    verbs: ["update", "patch"]

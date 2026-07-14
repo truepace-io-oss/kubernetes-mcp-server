@@ -1,0 +1,20 @@
+{
+  "//": "Claude Code: multiple kubernetes-mcp instances, one per network zone. Each is a separate streamable-HTTP MCP server. 'type':'http' is required. Auth (if any) travels as headers.",
+  "mcpServers": {
+    "k8s-tools": {
+      "type": "http",
+      "url": "https://kubernetes-mcp.intern.tools.averion.zone/mcp"
+    },
+    "k8s-private": {
+      "type": "http",
+      "url": "https://kubernetes-mcp.private.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${PRIVATE_INGRESS_TOKEN}"
+      }
+    },
+    "k8s-homelab": {
+      "type": "http",
+      "url": "https://kubernetes-mcp.homelab.example.com/mcp"
+    }
+  }
+}
