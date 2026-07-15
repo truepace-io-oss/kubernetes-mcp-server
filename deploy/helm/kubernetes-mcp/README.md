@@ -23,7 +23,8 @@ helm install my-mcp deploy/helm/kubernetes-mcp \
 | `ExternalSecret` (image pull) | `externalSecrets.enabled` + `imagePullSecret.esoRef` |
 | `Deployment`, `Service` | always |
 | `Ingress` | `ingress.enabled` |
-| `ServiceMonitor` | `serviceMonitor.enabled` |
+| `ServiceMonitor` | `serviceMonitor.enabled` (needs `metrics.enabled`) |
+| Grafana dashboard `ConfigMap` | `grafanaDashboard.enabled` (sidecar label `grafana_dashboard: "1"`) |
 
 ## Local-cluster RBAC tiers (`localCluster.rbac.tier`)
 

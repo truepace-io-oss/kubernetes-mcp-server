@@ -32,6 +32,10 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz

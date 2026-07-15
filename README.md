@@ -182,6 +182,15 @@ Defense in depth: a global `readOnly` switch and per-cluster `readOnly` flag can
 disable all mutations regardless of RBAC. Note that agent auth is separate from
 **cluster** auth (ServiceAccount + RBAC) — the two are independent layers.
 
+## Metrics
+
+Prometheus metrics on a **separate, unauthenticated port** (default `:9091`,
+`metricsAddr`): per-tool usage/latency/errors, agent-auth outcomes, per-cluster
+apiserver calls (client-go, with status codes) + reachability, write-guard
+blocks, and Go/process runtime. Not behind the `/mcp` auth or the public ingress
+— scrape it in-cluster (chart `serviceMonitor.enabled`). See
+[`docs/metrics.md`](./docs/metrics.md).
+
 ## Testing
 
 ```bash

@@ -12,45 +12,14 @@ import (
 )
 
 func (s *Server) registerReadTools(m *mcp.Server) {
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "clusters_list",
-		Description: "List the Kubernetes clusters this MCP instance manages, with reachability and read-only status.",
-	}, s.clustersList)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "namespaces_list",
-		Description: "List namespaces in a cluster.",
-	}, s.namespacesList)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "resources_list",
-		Description: "List objects of any Kubernetes kind (built-in or CRD) by apiVersion+kind, optionally filtered by namespace and selectors.",
-	}, s.resourcesList)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "resources_get",
-		Description: "Get a single Kubernetes object by apiVersion+kind+name (secrets are returned with values redacted).",
-	}, s.resourcesGet)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "pods_list",
-		Description: "List pods in a namespace (or all namespaces) with phase and node.",
-	}, s.podsList)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "pods_log",
-		Description: "Fetch logs from a pod container.",
-	}, s.podsLog)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "events_list",
-		Description: "List events in a namespace (or all namespaces), sorted by time.",
-	}, s.eventsList)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "nodes_list",
-		Description: "List cluster nodes with readiness.",
-	}, s.nodesList)
+	addTool(m, s, "clusters_list", "List the Kubernetes clusters this MCP instance manages, with reachability and read-only status.", s.clustersList)
+	addTool(m, s, "namespaces_list", "List namespaces in a cluster.", s.namespacesList)
+	addTool(m, s, "resources_list", "List objects of any Kubernetes kind (built-in or CRD) by apiVersion+kind, optionally filtered by namespace and selectors.", s.resourcesList)
+	addTool(m, s, "resources_get", "Get a single Kubernetes object by apiVersion+kind+name (secrets are returned with values redacted).", s.resourcesGet)
+	addTool(m, s, "pods_list", "List pods in a namespace (or all namespaces) with phase and node.", s.podsList)
+	addTool(m, s, "pods_log", "Fetch logs from a pod container.", s.podsLog)
+	addTool(m, s, "events_list", "List events in a namespace (or all namespaces), sorted by time.", s.eventsList)
+	addTool(m, s, "nodes_list", "List cluster nodes with readiness.", s.nodesList)
 }
 
 func (s *Server) clustersList(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {

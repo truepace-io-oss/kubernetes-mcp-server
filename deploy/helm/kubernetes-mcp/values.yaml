@@ -21,6 +21,12 @@ config:
   readOnly: false           # global kill-switch for all mutating tools
   defaultCluster: "local"   # must match a cluster name below
 
+# Prometheus metrics on a SEPARATE, unauthenticated port (never behind the MCP
+# auth or the public ingress). serviceMonitor.enabled requires metrics.enabled.
+metrics:
+  enabled: true
+  port: 9091
+
 # ---- Agent → MCP authentication (client-side link) --------------------------
 # Independent of cluster auth. Disabled by default (protect via internal ingress).
 # When enabled, always run behind TLS.
@@ -127,6 +133,16 @@ serviceMonitor:
   interval: "30s"
   scrapeTimeout: "10s"
   labels: {}
+
+# Grafana dashboard shipped as a ConfigMap the Grafana sidecar auto-discovers
+# (via the label below). Requires the Grafana dashboard sidecar in the cluster.
+grafanaDashboard:
+  enabled: false
+  label: grafana_dashboard      # sidecar discovery label
+  labelValue: "1"
+  folder: ""                    # optional Grafana folder (grafana_folder annotation)
+  namespace: ""                 # optional; default = release namespace
+  extraLabels: {}
 
 resources:
   requests:

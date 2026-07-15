@@ -13,6 +13,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
 	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/metrics"
 )
 
 // Middleware wraps an http.Handler with authentication.
@@ -39,7 +40,7 @@ func Build(ctx context.Context, cfg config.Auth) (*Built, error) {
 		return &Built{Middleware: passthrough, Description: "disabled"}, nil
 	}
 
-	var verifiers []auth.TokenVerifier
+	var verifiers []namedVerifier
 	desc := ""
 
 	if cfg.Static.Enabled {
@@ -47,7 +48,7 @@ func Build(ctx context.Context, cfg config.Auth) (*Built, error) {
 		if err != nil {
 			return nil, err
 		}
-		verifiers = append(verifiers, sv.verify)
+		verifiers = append(verifiers, namedVerifier{"static", sv.verify})
 		desc = "static"
 	}
 
@@ -60,7 +61,7 @@ func Build(ctx context.Context, cfg config.Auth) (*Built, error) {
 		if err != nil {
 			return nil, err
 		}
-		verifiers = append(verifiers, ov.verify)
+		verifiers = append(verifiers, namedVerifier{"oidc", ov.verify})
 		opts.Scopes = cfg.OIDC.RequiredScopes
 		if desc == "" {
 			desc = "oidc"
@@ -96,19 +97,27 @@ func Build(ctx context.Context, cfg config.Auth) (*Built, error) {
 
 func passthrough(next http.Handler) http.Handler { return next }
 
+// namedVerifier pairs a verifier with a method name for metrics.
+type namedVerifier struct {
+	name   string
+	verify auth.TokenVerifier
+}
+
 // chain returns a verifier that accepts a token if any of the given verifiers
-// accepts it. It returns the last error otherwise, so the message reflects the
-// most specific (typically OIDC) failure.
-func chain(verifiers []auth.TokenVerifier) auth.TokenVerifier {
+// accepts it, recording the auth outcome. It returns the last error otherwise,
+// so the message reflects the most specific (typically OIDC) failure.
+func chain(verifiers []namedVerifier) auth.TokenVerifier {
 	return func(ctx context.Context, token string, req *http.Request) (*auth.TokenInfo, error) {
 		var lastErr error
 		for _, v := range verifiers {
-			info, err := v(ctx, token, req)
+			info, err := v.verify(ctx, token, req)
 			if err == nil {
+				metrics.RecordAuth(v.name, "allow")
 				return info, nil
 			}
 			lastErr = err
 		}
+		metrics.RecordAuth("none", "deny")
 		if lastErr == nil {
 			lastErr = auth.ErrInvalidToken
 		}

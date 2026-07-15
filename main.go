@@ -21,10 +21,12 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/auth"
 	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/clusters"
 	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
 	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/mcpserver"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/metrics"
 )
 
 // version is set via -ldflags "-X main.version=...".
@@ -55,6 +57,11 @@ func run(configPath string) error {
 	logger := newLogger(cfg.LogLevel)
 	slog.SetDefault(logger)
 	mcpserver.SetVersion(version)
+
+	// Metrics: register the client-go request-metrics adapters before any client
+	// is built, and publish build info.
+	metrics.RegisterClientGo()
+	metrics.SetBuildInfo(version)
 
 	for _, w := range cfg.Warnings() {
 		logger.Warn("config", "warning", w)
@@ -112,6 +119,22 @@ func run(configPath string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Metrics server on a separate, unauthenticated port (never behind /mcp auth
+	// or the public ingress), plus a periodic cluster-reachability probe.
+	var metricsSrv *http.Server
+	if addr := cfg.MetricsAddr; addr != "" && addr != "off" {
+		mmux := http.NewServeMux()
+		mmux.Handle("/metrics", promhttp.Handler())
+		metricsSrv = &http.Server{Addr: addr, Handler: mmux, ReadHeaderTimeout: 10 * time.Second}
+		go func() {
+			logger.Info("metrics listening", "addr", addr, "endpoint", "/metrics")
+			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.Error("metrics server", "err", err)
+			}
+		}()
+		go probeClusters(ctx, reg)
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
 		logger.Info("listening", "addr", cfg.ListenAddr, "endpoint", "/mcp")
@@ -129,7 +152,34 @@ func run(configPath string) error {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	if metricsSrv != nil {
+		_ = metricsSrv.Shutdown(shutdownCtx)
+	}
 	return httpSrv.Shutdown(shutdownCtx)
+}
+
+// probeClusters periodically pings every cluster and updates the reachability
+// gauge, so kmcp_cluster_up reflects health independently of tool traffic.
+func probeClusters(ctx context.Context, reg *clusters.Registry) {
+	probe := func() {
+		for _, cl := range reg.All() {
+			pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			_, err := cl.Ping(pctx)
+			cancel()
+			metrics.SetClusterUp(cl.Name, err == nil)
+		}
+	}
+	probe()
+	t := time.NewTicker(30 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			probe()
+		}
+	}
 }
 
 func newLogger(level string) *slog.Logger {

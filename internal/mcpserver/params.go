@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/clusters"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/metrics"
 )
 
 // Shared input structs for the tools. Field descriptions (jsonschema tag) are
@@ -12,6 +13,10 @@ import (
 type clusterParam struct {
 	Cluster string `json:"cluster,omitempty" jsonschema:"the configured cluster to target; defaults to the server's default cluster when omitted"`
 }
+
+// metricCluster reports the requested cluster for metric labels; promoted to
+// every input struct that embeds clusterParam (directly or via namespaceParam).
+func (c clusterParam) metricCluster() string { return c.Cluster }
 
 type namespaceParam struct {
 	clusterParam
@@ -55,9 +60,11 @@ func resolveNamespace(cl *clusters.Cluster, ns string) string {
 // through an instance an operator intends to be read-only.
 func (s *Server) assertWritable(cl *clusters.Cluster) error {
 	if s.readOnly {
+		metrics.RecordWriteBlocked(cl.Name, "global_readonly")
 		return fmt.Errorf("this MCP instance is configured read-only (writes disabled globally)")
 	}
 	if cl.ReadOnly {
+		metrics.RecordWriteBlocked(cl.Name, "cluster_readonly")
 		return fmt.Errorf("writes are disabled for cluster %q (readOnly)", cl.Name)
 	}
 	return nil

@@ -19,6 +19,7 @@ import (
 // Config is the top-level server configuration.
 type Config struct {
 	ListenAddr     string          `json:"listenAddr"`
+	MetricsAddr    string          `json:"metricsAddr"`
 	LogLevel       string          `json:"logLevel"`
 	ReadOnly       bool            `json:"readOnly"`
 	DefaultCluster string          `json:"defaultCluster"`
@@ -161,6 +162,9 @@ func (c *Config) applyEnv() {
 	if v := os.Getenv("KMCP_LISTEN_ADDR"); v != "" {
 		c.ListenAddr = v
 	}
+	if v := os.Getenv("KMCP_METRICS_ADDR"); v != "" {
+		c.MetricsAddr = v
+	}
 	if v := os.Getenv("KMCP_LOG_LEVEL"); v != "" {
 		c.LogLevel = v
 	}
@@ -193,6 +197,9 @@ func (c *Config) applyEnv() {
 func (c *Config) applyDefaults() {
 	if c.ListenAddr == "" {
 		c.ListenAddr = "0.0.0.0:9090"
+	}
+	if c.MetricsAddr == "" {
+		c.MetricsAddr = ":9091" // separate port; set "off" to disable
 	}
 	if c.LogLevel == "" {
 		c.LogLevel = "info"

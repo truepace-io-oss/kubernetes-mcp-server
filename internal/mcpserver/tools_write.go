@@ -11,25 +11,10 @@ import (
 )
 
 func (s *Server) registerWriteTools(m *mcp.Server) {
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "resources_apply",
-		Description: "Server-side apply a YAML/JSON manifest to a cluster (create or update). Blocked when the instance or cluster is read-only; ultimately governed by RBAC.",
-	}, s.resourcesApply)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "resources_delete",
-		Description: "Delete a single Kubernetes object by apiVersion+kind+name. Blocked when read-only; governed by RBAC.",
-	}, s.resourcesDelete)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "deployment_scale",
-		Description: "Scale a Deployment to a given replica count. Blocked when read-only; governed by RBAC.",
-	}, s.deploymentScale)
-
-	mcp.AddTool(m, &mcp.Tool{
-		Name:        "rollout_restart",
-		Description: "Trigger a rolling restart of a Deployment, StatefulSet or DaemonSet by patching its pod template annotation. Blocked when read-only; governed by RBAC.",
-	}, s.rolloutRestart)
+	addTool(m, s, "resources_apply", "Server-side apply a YAML/JSON manifest to a cluster (create or update). Blocked when the instance or cluster is read-only; ultimately governed by RBAC.", s.resourcesApply)
+	addTool(m, s, "resources_delete", "Delete a single Kubernetes object by apiVersion+kind+name. Blocked when read-only; governed by RBAC.", s.resourcesDelete)
+	addTool(m, s, "deployment_scale", "Scale a Deployment to a given replica count. Blocked when read-only; governed by RBAC.", s.deploymentScale)
+	addTool(m, s, "rollout_restart", "Trigger a rolling restart of a Deployment, StatefulSet or DaemonSet by patching its pod template annotation. Blocked when read-only; governed by RBAC.", s.rolloutRestart)
 }
 
 func (s *Server) resourcesApply(ctx context.Context, _ *mcp.CallToolRequest, in struct {

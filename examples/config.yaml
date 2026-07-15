@@ -4,6 +4,7 @@
 # The server has NO auth logic of its own — Kubernetes RBAC is the only gate.
 
 listenAddr: "0.0.0.0:9090"   # KMCP_LISTEN_ADDR
+metricsAddr: ":9091"         # Prometheus /metrics on a separate port; "off" to disable ; KMCP_METRICS_ADDR
 logLevel: "info"             # debug|info|warn|error ; KMCP_LOG_LEVEL
 readOnly: false              # global kill-switch for all mutating tools ; KMCP_READ_ONLY
 defaultCluster: "local"      # used when a tool call omits `cluster` ; KMCP_DEFAULT_CLUSTER
