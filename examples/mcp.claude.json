@@ -1,10 +1,19 @@
 {
-  "//": "Claude Code: multiple kubernetes-mcp instances, one per network zone. 'type':'http' is required. Static tokens travel as an Authorization header; OIDC servers need no header (the client runs the browser flow and manages the token).",
+  "//": "Claude Code: multiple kubernetes-mcp instances, one per zone. 'type':'http' is required. See docs/auth.md §4 for how OIDC client config depends on Dynamic Client Registration (DCR).",
   "mcpServers": {
     "k8s-tools": {
-      "//": "OIDC (Authentik/Keycloak): no header — browser login on first use.",
+      "//": "OIDC via Authentik (no DCR): give the pre-registered public client_id + the provider's OIDC discovery URL. Browser login on first use; run: claude mcp login k8s-tools.",
       "type": "http",
-      "url": "https://kubernetes-mcp.intern.tools.averion.zone/mcp"
+      "url": "https://kubernetes-mcp.tools.averion.zone/mcp",
+      "oauth": {
+        "clientId": "kubernetes-mcp",
+        "authServerMetadataUrl": "https://auth.tools.averion.zone/application/o/kubernetes-mcp/.well-known/openid-configuration"
+      }
+    },
+    "k8s-keycloak": {
+      "//": "OIDC via a DCR-capable provider (e.g. Keycloak): just the URL — the client self-registers.",
+      "type": "http",
+      "url": "https://kubernetes-mcp.example.com/mcp"
     },
     "k8s-private": {
       "//": "Static bearer token.",
@@ -13,10 +22,6 @@
       "headers": {
         "Authorization": "Bearer ${PRIVATE_MCP_TOKEN}"
       }
-    },
-    "k8s-homelab": {
-      "type": "http",
-      "url": "https://kubernetes-mcp.homelab.example.com/mcp"
     }
   }
 }

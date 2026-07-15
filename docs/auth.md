@@ -70,11 +70,11 @@ auth:
     resourceMetadata: true
 ```
 
-No secret is needed (JWKS is public). The client config is just the URL — **no
-header** — because the client obtains the token itself:
-```json
-{ "mcpServers": { "k8s": { "type": "http", "url": "https://kubernetes-mcp.example.com/mcp" }}}
-```
+No secret is needed (JWKS is public) and no `Authorization` header is set in the
+client config — the client obtains the token itself. **How much client config is
+needed depends on whether your provider supports Dynamic Client Registration
+(DCR)** — see [§4 Client configuration](#4-client-configuration-claude-code).
+Keycloak supports DCR; **Authentik does not**.
 
 ### Does it open a UI on first use? Yes.
 
@@ -94,7 +94,7 @@ sequenceDiagram
     M-->>C: 401 + WWW-Authenticate (resource_metadata URL)
     C->>M: GET /.well-known/oauth-protected-resource
     M-->>C: { authorization_servers: [issuer], resource: audience }
-    C->>A: discover + (dynamic) client registration
+    C->>A: discover AS metadata + get a client (DCR, or a pre-registered client_id)
     C->>U: opens browser → login + consent  (the UI, first use only)
     U->>A: authenticate / approve
     A-->>C: auth code → access token (PKCE)
@@ -107,13 +107,21 @@ sequenceDiagram
 ## 3. Provider setup
 
 ### Authentik
-1. Create an **OAuth2/OpenID Provider** + **Application**. Note the issuer
-   (`https://authentik.example.com/application/o/<slug>/`) and JWKS (`.../jwks/`).
-2. Set the token **audience** to the MCP's public URL so `aud` == `oidc.audience`.
-3. If using `requiredGroups`, expose a `groups` claim/scope. Bind which
-   users/groups may access the Application.
-4. Allow the client redirect URI (Claude Code uses `http://localhost:<port>/callback`)
-   or enable **Dynamic Client Registration**.
+Authentik has **no Dynamic Client Registration**, so you must pre-register a
+**public** client and give its `client_id` to the agent (see §4).
+1. Create an **OAuth2/OpenID Provider** (`client_type: public`, RS256 signing key)
+   + **Application**. The application **slug** fixes the issuer
+   (`https://auth.<domain>/application/o/<slug>/`; JWKS at `.../jwks/`).
+2. Set `include_claims_in_access_token: true` — the MCP validates the **access**
+   token. Authentik stamps `aud = client_id`, so set the MCP's
+   `oidc.audience` to that `client_id` (e.g. `kubernetes-mcp`).
+3. Add a `groups` **scope mapping** if you use `requiredGroups`, and a
+   **policy binding** to the group(s) allowed to log in.
+4. Set **redirect URIs** to regex so any Claude Code callback port matches:
+   `http://localhost:\d+/.*` and `http://127.0.0.1:\d+/.*`.
+
+> This whole provider can be created declaratively via an Authentik **blueprint**
+> — see the working example in [`docs/environments-integration.md`](./environments-integration.md).
 
 ### Keycloak
 1. Realm → **Client** (public, PKCE, standard flow). Issuer
@@ -124,7 +132,47 @@ sequenceDiagram
 
 Both are standard OIDC — same `issuer` / `audience` config, only the URLs differ.
 
-## 4. Both at once
+## 4. Client configuration (Claude Code)
+
+How the agent connects depends on whether the provider supports **Dynamic Client
+Registration (DCR)**:
+
+**Provider supports DCR (e.g. Keycloak):** just the URL — the client registers
+itself and discovers everything from the MCP's protected-resource metadata:
+```json
+{ "mcpServers": { "kubernetes-mcp": { "type": "http", "url": "https://kubernetes-mcp.example.com/mcp" } } }
+```
+
+**Provider has no DCR (e.g. Authentik):** the client can't self-register, so give
+it the **pre-registered `client_id`** and the **authorization-server metadata
+URL** explicitly:
+```json
+{
+  "mcpServers": {
+    "kubernetes-mcp": {
+      "type": "http",
+      "url": "https://kubernetes-mcp.example.com/mcp",
+      "oauth": {
+        "clientId": "kubernetes-mcp",
+        "authServerMetadataUrl": "https://auth.example.com/application/o/kubernetes-mcp/.well-known/openid-configuration"
+      }
+    }
+  }
+}
+```
+Then trigger login: `claude mcp login kubernetes-mcp` (or `/mcp` → *Authenticate*);
+reset a bad state with `claude mcp logout kubernetes-mcp`. Requires a recent
+Claude Code (pre-registered-client OAuth support, ~v2.1.186+).
+
+> **Why `authServerMetadataUrl` is needed today:** the MCP's `401` currently
+> advertises a *relative* `resource_metadata` path in `WWW-Authenticate`. Some
+> clients (Claude Code with a manual `client_id`) then default the authorization
+> server to the MCP's own origin and hit a non-existent `/authorize`. Pointing
+> `authServerMetadataUrl` at the provider's OIDC discovery fixes it. A future
+> release will emit an absolute `resource_metadata` URL so this override becomes
+> unnecessary.
+
+## 5. Both at once
 
 Enable `static` and `oidc` together: machines present a static bearer token,
 humans get the OIDC browser flow. A request passes if either verifier accepts it.

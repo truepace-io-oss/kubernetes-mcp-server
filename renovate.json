@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "local>truepace-io-oss/renovate-bot"],
+  "platformAutomerge": true,
+  "packageRules": [
+    {
+      "matchPackageNames": ["*"],
+      "groupName": "all dependencies",
+      "groupSlug": "all",
+      "automerge": true
+    }
+  ]
+}
