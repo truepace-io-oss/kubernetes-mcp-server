@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Multi-arch build. Go cross-compiles on the native $BUILDPLATFORM for the
 # requested $TARGETARCH, so only the tiny distroless runtime layer is emulated.
-FROM --platform=$BUILDPLATFORM golang:1.25 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26 AS builder
 
 WORKDIR /src
 
