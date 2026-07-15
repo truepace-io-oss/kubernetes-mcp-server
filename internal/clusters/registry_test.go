@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/config"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
 )
 
 // fakeAPIServer returns a TLS test server that answers the /version endpoint,

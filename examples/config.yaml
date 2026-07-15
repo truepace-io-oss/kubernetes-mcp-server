@@ -30,3 +30,32 @@ clusters:
     kubeconfigFile: "/etc/kmcp/kubeconfig"
     context: "homelab"
     readOnly: false
+
+# Authentication of the AI agent to THIS MCP server (the client-side link).
+# Independent of cluster auth. Disabled by default (protect via internal ingress).
+# When enabled, always run behind TLS — bearer tokens over plaintext are insecure.
+auth:
+  enabled: false            # KMCP_AUTH_ENABLED
+
+  # (1) Shared bearer tokens. A request is accepted if it presents any of them.
+  static:
+    enabled: false
+    tokens:
+      - name: ci
+        tokenFile: /etc/kmcp/auth/ci-token   # preferred (ESO, rotatable)
+      - name: laptop
+        token: "change-me"                   # inline, discouraged
+
+  # (2) OIDC / OAuth 2.1 resource server (Authentik or Keycloak).
+  oidc:
+    enabled: false
+    # Authentik: https://authentik.example.com/application/o/<app-slug>/
+    # Keycloak:  https://kc.example.com/realms/<realm>
+    issuer: ""
+    audience: ""            # RFC 8707 resource id == this MCP's public URL == token `aud`
+    jwksUrl: ""            # optional; default discovered from the issuer
+    requiredScopes: []      # e.g. ["mcp.access"]
+    requiredGroups: []      # e.g. ["k8s-admins"]
+    groupsClaim: "groups"
+    usernameClaim: "preferred_username"
+    resourceMetadata: true  # serve /.well-known/oauth-protected-resource for client discovery

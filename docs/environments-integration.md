@@ -35,10 +35,10 @@ WireGuard — never public.
 
 ## 4. Pin the image version
 
-Set the chart `image.tag` (or the env-data `kubernetes_mcp.version`) to the
-`$CI_PIPELINE_ID` produced by this repo's `image-build-and-push` job (registry
-`registry.gitlab.com/ai-guard/kubernetes-mcp`). Renovate can track it with a
-`# renovate: datasource=docker` annotation.
+Set the chart `image.tag` (or the env-data `kubernetes_mcp.version`) to a tag
+produced by the GitHub Actions `build-and-push` job — a semver tag (`vX.Y.Z`) or
+the `sha-<commit>` tag — from `ghcr.io/truepace-io-oss/kubernetes-mcp-server`. Renovate can track
+it with a `# renovate: datasource=docker` annotation.
 
 ## 5. Enable in the environment
 

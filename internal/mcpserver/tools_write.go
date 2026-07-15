@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/k8s"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/k8s"
 	"k8s.io/apimachinery/pkg/types"
 )
 

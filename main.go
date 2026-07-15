@@ -21,9 +21,10 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/clusters"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/config"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/mcpserver"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/auth"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/clusters"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/mcpserver"
 )
 
 // version is set via -ldflags "-X main.version=...".
@@ -67,12 +68,24 @@ func run(configPath string) error {
 
 	srv := mcpserver.New(reg, cfg)
 
+	// Agent-facing authentication (independent of cluster auth).
+	authn, err := auth.Build(context.Background(), cfg.Auth)
+	if err != nil {
+		return err
+	}
+	logger.Info("agent authentication", "mode", authn.Description)
+
 	// One MCP server value, reused for every session.
 	mcpSrv := srv.MCPServer()
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return mcpSrv }, nil)
 
 	mux := http.NewServeMux()
-	mux.Handle("/mcp", handler)
+	// Only /mcp is authenticated; health probes stay open, and the
+	// protected-resource metadata endpoint is public by spec.
+	mux.Handle("/mcp", authn.Middleware(handler))
+	if authn.MetadataHandler != nil {
+		mux.Handle(authn.MetadataPath, authn.MetadataHandler)
+	}
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))

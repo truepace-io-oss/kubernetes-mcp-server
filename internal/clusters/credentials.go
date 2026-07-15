@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/config"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )

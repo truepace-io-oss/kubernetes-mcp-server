@@ -23,6 +23,53 @@ type Config struct {
 	ReadOnly       bool            `json:"readOnly"`
 	DefaultCluster string          `json:"defaultCluster"`
 	Clusters       []ClusterConfig `json:"clusters"`
+	Auth           Auth            `json:"auth"`
+}
+
+// Auth configures how the AI agent authenticates to this MCP server (the
+// client-side link). It is independent of cluster authentication: this decides
+// who may talk to the MCP, while ServiceAccount tokens + RBAC decide what the MCP
+// may do in a cluster. When disabled, the transport is unauthenticated and must
+// be protected by the deployment (e.g. an internal ingress).
+type Auth struct {
+	Enabled bool       `json:"enabled"`
+	Static  AuthStatic `json:"static"`
+	OIDC    AuthOIDC   `json:"oidc"`
+}
+
+// AuthStatic configures one or more shared bearer tokens.
+type AuthStatic struct {
+	Enabled bool        `json:"enabled"`
+	Tokens  []AuthToken `json:"tokens"`
+}
+
+// AuthToken is a single shared bearer token. Exactly one of Token/TokenFile.
+type AuthToken struct {
+	Name      string `json:"name"`
+	Token     string `json:"token,omitempty"`     // inline, discouraged
+	TokenFile string `json:"tokenFile,omitempty"` // preferred (ESO / rotatable)
+}
+
+// AuthOIDC configures the MCP as an OAuth 2.1 resource server validating JWT
+// access tokens from an OIDC provider (Authentik / Keycloak).
+type AuthOIDC struct {
+	Enabled        bool     `json:"enabled"`
+	Issuer         string   `json:"issuer"`
+	Audience       string   `json:"audience"`
+	JWKSURL        string   `json:"jwksUrl,omitempty"`
+	RequiredScopes []string `json:"requiredScopes,omitempty"`
+	RequiredGroups []string `json:"requiredGroups,omitempty"`
+	GroupsClaim    string   `json:"groupsClaim,omitempty"`
+	UsernameClaim  string   `json:"usernameClaim,omitempty"`
+	// ResourceMetadata controls serving /.well-known/oauth-protected-resource.
+	// Defaults to true (enabled) when unset.
+	ResourceMetadata *bool `json:"resourceMetadata,omitempty"`
+}
+
+// ServeResourceMetadata reports whether the protected-resource-metadata endpoint
+// should be served (defaults to true).
+func (o AuthOIDC) ServeResourceMetadata() bool {
+	return o.ResourceMetadata == nil || *o.ResourceMetadata
 }
 
 // ClusterConfig describes how to reach and authenticate to one cluster.
@@ -125,6 +172,22 @@ func (c *Config) applyEnv() {
 			c.ReadOnly = b
 		}
 	}
+	if v := os.Getenv("KMCP_AUTH_ENABLED"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			c.Auth.Enabled = b
+		}
+	}
+	if v := os.Getenv("KMCP_AUTH_STATIC_TOKEN"); v != "" {
+		c.Auth.Static.Enabled = true
+		c.Auth.Static.Tokens = append(c.Auth.Static.Tokens, AuthToken{Name: "env", Token: v})
+	}
+	if v := os.Getenv("KMCP_AUTH_OIDC_ISSUER"); v != "" {
+		c.Auth.OIDC.Enabled = true
+		c.Auth.OIDC.Issuer = v
+	}
+	if v := os.Getenv("KMCP_AUTH_OIDC_AUDIENCE"); v != "" {
+		c.Auth.OIDC.Audience = v
+	}
 }
 
 func (c *Config) applyDefaults() {
@@ -137,6 +200,12 @@ func (c *Config) applyDefaults() {
 	// If exactly one cluster is defined and no default is set, use it.
 	if c.DefaultCluster == "" && len(c.Clusters) == 1 {
 		c.DefaultCluster = c.Clusters[0].Name
+	}
+	if c.Auth.OIDC.GroupsClaim == "" {
+		c.Auth.OIDC.GroupsClaim = "groups"
+	}
+	if c.Auth.OIDC.UsernameClaim == "" {
+		c.Auth.OIDC.UsernameClaim = "preferred_username"
 	}
 }
 
@@ -194,6 +263,49 @@ func (c *Config) Validate() error {
 	if !seen[c.DefaultCluster] {
 		return fmt.Errorf("defaultCluster %q is not one of the configured clusters", c.DefaultCluster)
 	}
+
+	if err := c.Auth.validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a Auth) validate() error {
+	if !a.Enabled {
+		return nil
+	}
+	if !a.Static.Enabled && !a.OIDC.Enabled {
+		return fmt.Errorf("auth.enabled is true but neither auth.static nor auth.oidc is enabled")
+	}
+	if a.Static.Enabled {
+		if len(a.Static.Tokens) == 0 {
+			return fmt.Errorf("auth.static.enabled is true but no tokens configured")
+		}
+		names := map[string]bool{}
+		for i, t := range a.Static.Tokens {
+			if t.Name == "" {
+				return fmt.Errorf("auth.static.tokens[%d]: name is required", i)
+			}
+			if names[t.Name] {
+				return fmt.Errorf("auth.static.tokens: duplicate name %q", t.Name)
+			}
+			names[t.Name] = true
+			if (t.Token == "") == (t.TokenFile == "") {
+				return fmt.Errorf("auth.static.tokens[%q]: set exactly one of token or tokenFile", t.Name)
+			}
+		}
+	}
+	if a.OIDC.Enabled {
+		if a.OIDC.Issuer == "" {
+			return fmt.Errorf("auth.oidc.enabled is true but issuer is empty")
+		}
+		if !strings.HasPrefix(a.OIDC.Issuer, "https://") {
+			return fmt.Errorf("auth.oidc.issuer must be an https URL")
+		}
+		if a.OIDC.Audience == "" {
+			return fmt.Errorf("auth.oidc.enabled is true but audience is empty")
+		}
+	}
 	return nil
 }
 
@@ -214,6 +326,16 @@ func (c *Config) Warnings() []string {
 		if cl.InsecureSkipTLSVerify {
 			w = append(w, fmt.Sprintf("cluster %q: insecureSkipTLSVerify=true — TLS verification disabled, do not use in production", cl.Name))
 		}
+	}
+	if c.Auth.Static.Enabled {
+		for _, t := range c.Auth.Static.Tokens {
+			if t.Token != "" {
+				w = append(w, fmt.Sprintf("auth.static.tokens[%q]: inline token is discouraged; prefer tokenFile (ESO/rotatable)", t.Name))
+			}
+		}
+	}
+	if c.Auth.Enabled {
+		w = append(w, "auth is enabled — ensure the transport is TLS-protected (internal ingress or server TLS); bearer tokens over plaintext are insecure")
 	}
 	return w
 }

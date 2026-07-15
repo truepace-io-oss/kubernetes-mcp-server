@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/clusters"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/config"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/mcpserver"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/clusters"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/mcpserver"
 	authnv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -37,7 +37,7 @@ func TestMain(m *testing.M) {
 	if os.Getenv("KUBEBUILDER_ASSETS") == "" {
 		// Fail loudly rather than silently skipping: the Makefile / CI must set
 		// KUBEBUILDER_ASSETS (via `setup-envtest use`).
-		println("KUBEBUILDER_ASSETS is not set; run via `make test-e2e` (see kubernetes-mcp-plan.md Step 8)")
+		println("KUBEBUILDER_ASSETS is not set; run via `make test-e2e` (installs envtest binaries via setup-envtest)")
 		os.Exit(1)
 	}
 	testEnv = &envtest.Environment{}

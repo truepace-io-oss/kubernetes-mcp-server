@@ -142,3 +142,68 @@ func TestWarnings(t *testing.T) {
 		t.Fatalf("expected warnings for inline token + precedence, got %v", got)
 	}
 }
+
+func TestAuthValid(t *testing.T) {
+	p := writeTemp(t, `
+defaultCluster: local
+clusters: [{name: local, inCluster: true}]
+auth:
+  enabled: true
+  static:
+    enabled: true
+    tokens:
+      - {name: ci, tokenFile: /etc/kmcp/auth/ci}
+      - {name: laptop, token: secret}
+  oidc:
+    enabled: true
+    issuer: https://authentik.example.com/application/o/kmcp/
+    audience: https://kmcp.example.com
+`)
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !cfg.Auth.Enabled || !cfg.Auth.Static.Enabled || !cfg.Auth.OIDC.Enabled {
+		t.Fatalf("auth not parsed: %+v", cfg.Auth)
+	}
+	if cfg.Auth.OIDC.GroupsClaim != "groups" || cfg.Auth.OIDC.UsernameClaim != "preferred_username" {
+		t.Fatalf("oidc claim defaults not applied: %+v", cfg.Auth.OIDC)
+	}
+	if !cfg.Auth.OIDC.ServeResourceMetadata() {
+		t.Fatalf("resource metadata should default to true")
+	}
+}
+
+func TestAuthValidationErrors(t *testing.T) {
+	base := "defaultCluster: local\nclusters: [{name: local, inCluster: true}]\n"
+	cases := map[string]string{
+		"enabled no method":  base + "auth: {enabled: true}",
+		"static no tokens":   base + "auth: {enabled: true, static: {enabled: true}}",
+		"token both forms":   base + "auth:\n  enabled: true\n  static:\n    enabled: true\n    tokens: [{name: a, token: x, tokenFile: /f}]",
+		"token neither form": base + "auth:\n  enabled: true\n  static:\n    enabled: true\n    tokens: [{name: a}]",
+		"dup token name":     base + "auth:\n  enabled: true\n  static:\n    enabled: true\n    tokens: [{name: a, token: x}, {name: a, token: y}]",
+		"oidc no issuer":     base + "auth: {enabled: true, oidc: {enabled: true, audience: https://x}}",
+		"oidc http issuer":   base + "auth: {enabled: true, oidc: {enabled: true, issuer: http://x, audience: https://x}}",
+		"oidc no audience":   base + "auth: {enabled: true, oidc: {enabled: true, issuer: https://x}}",
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Load(writeTemp(t, body)); err == nil {
+				t.Fatalf("expected validation error for %q", name)
+			}
+		})
+	}
+}
+
+func TestAuthEnvOverrides(t *testing.T) {
+	p := writeTemp(t, "defaultCluster: local\nclusters: [{name: local, inCluster: true}]\n")
+	t.Setenv("KMCP_AUTH_ENABLED", "true")
+	t.Setenv("KMCP_AUTH_STATIC_TOKEN", "envtoken")
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Auth.Enabled || !cfg.Auth.Static.Enabled || len(cfg.Auth.Static.Tokens) != 1 || cfg.Auth.Static.Tokens[0].Token != "envtoken" {
+		t.Fatalf("auth env overrides not applied: %+v", cfg.Auth)
+	}
+}

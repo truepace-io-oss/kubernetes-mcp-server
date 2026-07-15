@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/config"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
 )
 
 // Registry is a thread-safe collection of the clusters this MCP instance manages.

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/config"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/k8s"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/k8s"
 	"k8s.io/client-go/discovery"
 	memory "k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"

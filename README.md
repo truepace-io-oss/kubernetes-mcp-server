@@ -17,10 +17,12 @@ engine, no "own magic" in the MCP.
 - **Streamable-HTTP transport**, deployable via the bundled **Helm chart** with
   **ESO**-managed secrets.
 
-## Topology
+## Topology (example)
 
-The AI agent connects to several MCP instances (one per zone); each instance
-manages its own cluster and, optionally, remote clusters.
+The diagram below is **one example** layout — the names ("My Company Tools
+Cluster", "Home Lab", …) are illustrative. The AI agent connects to several MCP
+instances (one per zone); each instance manages its own cluster and, optionally,
+remote clusters.
 
 ```mermaid
 flowchart TB
@@ -53,23 +55,32 @@ config) and **many clusters per instance** (the server's cluster registry).
 
 ## Central auth model
 
+Two independent gates secure a call — **(1)** the agent authenticates to the MCP
+(optional, [`docs/auth.md`](./docs/auth.md)), and **(2)** the MCP's ServiceAccount
+is authorized by Kubernetes RBAC (always). The MCP itself holds no policy.
+
 ```mermaid
 sequenceDiagram
     participant A as AI agent
     participant M as kubernetes-mcp
     participant K as kube-apiserver
-    A->>M: tools/call (e.g. resources_list, cluster="customer-a")
-    M->>M: pick cluster from registry → its SA token + CA
-    M->>K: API request (Bearer SA-token)
-    K->>K: RBAC authorizes the SA
-    alt allowed
-        K-->>M: 200 + objects
-        M-->>A: formatted result
-    else denied
-        K-->>M: 403 Forbidden
-        M-->>A: tool error "Forbidden" (verbatim)
+    A->>M: tools/call + Authorization: Bearer [token]
+    M->>M: (1) authenticate caller (static token / OIDC JWT)
+    alt caller not authenticated
+        M-->>A: 401 Unauthorized
+    else authenticated
+        M->>M: pick cluster from registry → its SA token + CA
+        M->>K: API request (Bearer SA-token)
+        K->>K: (2) RBAC authorizes the ServiceAccount
+        alt allowed
+            K-->>M: 200 + objects
+            M-->>A: formatted result
+        else denied
+            K-->>M: 403 Forbidden
+            M-->>A: tool error "Forbidden" (verbatim)
+        end
     end
-    Note over M,K: The MCP holds no policy. RBAC is the only gate.
+    Note over A,K: (1) client→MCP auth (optional, TLS) · (2) Kubernetes RBAC (the only cluster gate)
 ```
 
 ## Cluster registry (server internals)
@@ -91,17 +102,6 @@ flowchart LR
 Each cluster entry builds a typed client, a dynamic client (for any GVK/CRD) and
 a REST mapper — once, up front. File-based tokens/CAs are re-read on use, so
 rotating (projected / ESO) credentials are picked up without a restart.
-
-## Deployment & secrets (ESO)
-
-```mermaid
-flowchart LR
-    bw["Secrets backend<br/>(Bitwarden / Vault / …)"] --> eso["External Secrets Operator"]
-    eso --> sec["Secret<br/>(token, ca.crt)"]
-    sec -->|mounted /etc/kmcp/clusters/&lt;name&gt;| pod["kubernetes-mcp pod"]
-    sa["ServiceAccount + RBAC tier<br/>(local cluster)"] --> pod
-    ing["internal ingress (WireGuard)"] --> pod
-```
 
 ## Tools
 
@@ -165,17 +165,22 @@ credentials — see the [chart README](./deploy/helm/kubernetes-mcp/README.md).
 
 ## ServiceAccounts for target clusters
 
-Ready-to-apply examples for **read-only**, **full-access** and **fine-grained**
-ServiceAccounts, plus a script to extract the `server`/CA/token for the MCP
-config: [`deploy/rbac/`](./deploy/rbac/).
+Ready-to-apply **read-only**, **full-access** and **fine-grained** ServiceAccount
+examples, plus a script to extract the `server`/CA/token for the MCP config —
+see [`docs/rbac.md`](./docs/rbac.md) (manifests in [`deploy/rbac/`](./deploy/rbac/)).
 
 ## Security model
 
-The streamable-HTTP transport has **no built-in authentication** (by design —
-auth is Kubernetes'). Expose it only on a trusted / internal ingress (e.g.
-WireGuard), optionally with basic-auth. **Never expose it publicly.** Defense in
-depth: a global `readOnly` switch and per-cluster `readOnly` flag can disable all
-mutations regardless of RBAC.
+**Agent → MCP auth** is pluggable (see [`docs/auth.md`](./docs/auth.md)):
+- `static` — shared bearer tokens (CI / scripts).
+- `oidc` — OAuth 2.1 resource server validating **Authentik**/**Keycloak** JWTs; MCP clients discover the provider and do a browser login on first use.
+- both together; disabled by default (`auth.enabled: false`).
+
+Always run behind **TLS** when auth is enabled. Even so, prefer exposing the MCP
+only on a trusted / internal ingress (e.g. WireGuard) — **never publicly**.
+Defense in depth: a global `readOnly` switch and per-cluster `readOnly` flag can
+disable all mutations regardless of RBAC. Note that agent auth is separate from
+**cluster** auth (ServiceAccount + RBAC) — the two are independent layers.
 
 ## Testing
 
@@ -193,4 +198,9 @@ deploying via the `environments` GitOps repo.
 
 Go 1.25, [official MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk),
 `client-go`. Layout: `internal/config` (config), `internal/clusters` (registry +
-credentials), `internal/k8s` (generic GVK access), `internal/mcpserver` (tools).
+credentials), `internal/k8s` (generic GVK access), `internal/mcpserver` (tools),
+`internal/auth` (agent-side static/OIDC authentication).
+
+## License
+
+[Apache License 2.0](./LICENSE).

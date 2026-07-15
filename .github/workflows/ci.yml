@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  ENVTEST_K8S_VERSION: "1.34.0"
+
+jobs:
+  # ---- Unit tests ----------------------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go vet ./...
+      - run: go test ./internal/... -race -count=1
+
+  # ---- E2E against a real kube-apiserver via envtest -----------------------
+  e2e-envtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install setup-envtest
+        run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+      - name: Run envtest E2E
+        run: |
+          export KUBEBUILDER_ASSETS="$(setup-envtest use "${ENVTEST_K8S_VERSION}" -p path)"
+          go test ./test/e2e/... -race -count=1
+
+  # ---- Helm chart lint + template validation -------------------------------
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Lint
+        run: helm lint deploy/helm/kubernetes-mcp
+      - name: Template (defaults, auth, fine-grained RBAC)
+        run: |
+          helm template t deploy/helm/kubernetes-mcp > /dev/null
+          helm template t deploy/helm/kubernetes-mcp \
+            --set auth.enabled=true --set auth.static.enabled=true \
+            --set 'auth.static.tokens[0].name=ci' --set 'auth.static.tokens[0].eso.ref=x' > /dev/null
+          helm template t deploy/helm/kubernetes-mcp \
+            --set localCluster.rbac.tier=fine-grained \
+            --set 'localCluster.rbac.fineGrained.namespaces={team-a}' > /dev/null
+
+  # ---- E2E against a real kind cluster with running workloads --------------
+  e2e-kind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: kmcp-e2e
+      - name: Run kind E2E
+        run: |
+          export KUBECONFIG="$HOME/.kube/config"
+          go test -tags e2e_kind ./test/e2e/kind/... -count=1 -v
+
+  # ---- Multi-arch image build + push to GHCR -------------------------------
+  # Runs only on push to main / tags (not on PRs from forks). Pushes
+  # ghcr.io/<owner>/<repo> with branch/semver/sha tags (+ :latest on main).
+  build-and-push:
+    needs: [test, e2e-envtest, helm]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Build and push (linux/amd64, linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

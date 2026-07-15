@@ -6,8 +6,8 @@ package mcpserver
 
 import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/clusters"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/config"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/clusters"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
 )
 
 // Version is injected by main via SetVersion; kept here so the MCP Implementation

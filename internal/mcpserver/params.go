@@ -3,7 +3,7 @@ package mcpserver
 import (
 	"fmt"
 
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/clusters"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/clusters"
 )
 
 // Shared input structs for the tools. Field descriptions (jsonschema tag) are

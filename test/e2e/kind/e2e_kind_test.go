@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/clusters"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/config"
-	"gitlab.com/ai-guard/kubernetes-mcp/internal/mcpserver"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/clusters"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/config"
+	"github.com/truepace-io-oss/kubernetes-mcp-server/internal/mcpserver"
 	authnv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"

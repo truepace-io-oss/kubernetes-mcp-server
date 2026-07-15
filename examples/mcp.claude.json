@@ -1,15 +1,17 @@
 {
-  "//": "Claude Code: multiple kubernetes-mcp instances, one per network zone. Each is a separate streamable-HTTP MCP server. 'type':'http' is required. Auth (if any) travels as headers.",
+  "//": "Claude Code: multiple kubernetes-mcp instances, one per network zone. 'type':'http' is required. Static tokens travel as an Authorization header; OIDC servers need no header (the client runs the browser flow and manages the token).",
   "mcpServers": {
     "k8s-tools": {
+      "//": "OIDC (Authentik/Keycloak): no header — browser login on first use.",
       "type": "http",
       "url": "https://kubernetes-mcp.intern.tools.averion.zone/mcp"
     },
     "k8s-private": {
+      "//": "Static bearer token.",
       "type": "http",
       "url": "https://kubernetes-mcp.private.example.com/mcp",
       "headers": {
-        "Authorization": "Bearer ${PRIVATE_INGRESS_TOKEN}"
+        "Authorization": "Bearer ${PRIVATE_MCP_TOKEN}"
       }
     },
     "k8s-homelab": {

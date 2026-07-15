@@ -1,6 +1,6 @@
 # kubernetes-mcp — dev shortcuts
 BINARY      := kubernetes-mcp
-PKG         := gitlab.com/ai-guard/kubernetes-mcp
+PKG         := github.com/truepace-io-oss/kubernetes-mcp-server
 VERSION     ?= dev
 LDFLAGS     := -s -w -X main.version=$(VERSION)
 ENVTEST_K8S := 1.34.0

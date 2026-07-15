@@ -1,8 +1,10 @@
-module gitlab.com/ai-guard/kubernetes-mcp
+module github.com/truepace-io-oss/kubernetes-mcp-server
 
 go 1.25.1
 
 require (
+	github.com/coreos/go-oidc/v3 v3.20.0
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	k8s.io/api v0.34.1
 	k8s.io/apimachinery v0.34.1
@@ -47,7 +49,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.50.0 // indirect
-	golang.org/x/oauth2 v0.35.0 // indirect
+	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/term v0.40.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
