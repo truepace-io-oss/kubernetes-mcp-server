@@ -5,7 +5,7 @@
   "time": { "from": "now-6h", "to": "now" },
   "refresh": "30s",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "uid": "kubernetes-mcp",
   "title": "Kubernetes MCP",
   "tags": ["kubernetes-mcp", "mcp"],
@@ -55,36 +55,45 @@
     },
     {
       "id": 3,
-      "type": "timeseries",
-      "title": "Agent auth (allow/deny) per s",
+      "type": "stat",
+      "title": "Agent auth (in range)",
+      "description": "Total agent authentication outcomes over the selected time range. Denies are 401s.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15 }, "unit": "reqps" }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "text" } },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "textMode": "value_and_name", "orientation": "horizontal" },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_auth_requests_total[$__rate_interval])) by (method, result)", "legendFormat": "{{method}} {{result}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(kmcp_auth_requests_total{result=\"allow\"}[$__range]))", "legendFormat": "allow", "instant": true },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(kmcp_auth_requests_total{result=\"deny\"}[$__range]))", "legendFormat": "deny", "instant": true }
       ]
     },
     {
       "id": 4,
-      "type": "timeseries",
-      "title": "Tool calls / s by tool",
+      "type": "bargauge",
+      "title": "Tool calls by tool (in range)",
+      "description": "Number of MCP tool invocations over the selected time range. Change the range (top right) to widen the window.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15, "stacking": { "mode": "normal" } }, "unit": "reqps" }, "overrides": [] },
-      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "continuous-GrYlRed" }, "min": 0 }, "overrides": [] },
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_tool_calls_total[$__rate_interval])) by (tool) or vector(0)", "legendFormat": "{{tool}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(kmcp_tool_calls_total[$__range])) by (tool)", "legendFormat": "{{tool}}", "instant": true }
       ]
     },
     {
       "id": 5,
-      "type": "timeseries",
-      "title": "Tool calls / s by result",
+      "type": "bargauge",
+      "title": "Tool calls by result (in range)",
+      "description": "ok | error | forbidden (Kubernetes 403) | blocked (read-only guard), over the selected time range.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "fieldConfig": {
-        "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15 }, "unit": "reqps" },
+        "defaults": { "unit": "short", "min": 0 },
         "overrides": [
           { "matcher": { "id": "byName", "options": "ok" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
           { "matcher": { "id": "byName", "options": "error" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
@@ -92,57 +101,61 @@
           { "matcher": { "id": "byName", "options": "blocked" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } } ] }
         ]
       },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_tool_calls_total[$__rate_interval])) by (result)", "legendFormat": "{{result}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(kmcp_tool_calls_total[$__range])) by (result)", "legendFormat": "{{result}}", "instant": true }
       ]
     },
     {
       "id": 6,
       "type": "timeseries",
       "title": "Tool latency p95 (s) by tool",
+      "description": "p95 tool latency computed over the whole selected range, so it stays populated for bursty / low-frequency usage.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "s" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true }, "unit": "s" }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum(rate(kmcp_tool_call_duration_seconds_bucket[$__rate_interval])) by (le, tool))", "legendFormat": "{{tool}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum(rate(kmcp_tool_call_duration_seconds_bucket[$__range])) by (le, tool))", "legendFormat": "{{tool}}" }
       ]
     },
     {
       "id": 7,
-      "type": "timeseries",
-      "title": "Writes blocked / s (read-only guard)",
+      "type": "bargauge",
+      "title": "Writes blocked by read-only guard (in range)",
+      "description": "Mutations blocked by the read-only guard over the selected range (global_readonly | cluster_readonly). Empty = none blocked.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15 }, "unit": "reqps" }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_writes_blocked_total[$__rate_interval])) by (mcp_cluster, reason) or vector(0)", "legendFormat": "{{mcp_cluster}} {{reason}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(kmcp_writes_blocked_total[$__range])) by (mcp_cluster, reason)", "legendFormat": "{{mcp_cluster}} {{reason}}", "instant": true }
       ]
     },
     {
       "id": 8,
-      "type": "timeseries",
-      "title": "Kubernetes API requests / s by code",
+      "type": "bargauge",
+      "title": "Kubernetes API requests by code (in range)",
+      "description": "Kubernetes apiserver calls (client-go) by HTTP status code over the selected range.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15, "stacking": { "mode": "normal" } }, "unit": "reqps" }, "overrides": [] },
-      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-GrYlRed" } }, "overrides": [] },
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(rest_client_requests_total[$__rate_interval])) by (code)", "legendFormat": "{{code}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(rest_client_requests_total[$__range])) by (code)", "legendFormat": "{{code}}", "instant": true }
       ]
     },
     {
       "id": 9,
       "type": "timeseries",
       "title": "Kubernetes API latency p95 (s) by host",
+      "description": "p95 apiserver latency (client-go) computed over the whole selected range.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
-      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "s" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true }, "unit": "s" }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum(rate(rest_client_request_duration_seconds_bucket[$__rate_interval])) by (le, host))", "legendFormat": "{{host}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum(rate(rest_client_request_duration_seconds_bucket[$__range])) by (le, host))", "legendFormat": "{{host}}" }
       ]
     }
   ]

@@ -45,8 +45,13 @@ the metrics port entirely (renders `metricsAddr: "off"`).
 ## Grafana dashboard
 
 The chart ships a dashboard (`deploy/helm/kubernetes-mcp/dashboards/kubernetes-mcp.json`,
-9 panels: tool rate/results/latency, auth, cluster-up, writes-blocked, apiserver
-requests-by-code/latency). Enable it as a Grafana-sidecar-discovered ConfigMap:
+9 panels: build-info, cluster-up, auth, tool calls by tool/result, tool latency
+p95, writes-blocked, apiserver requests-by-code/latency). The call-count panels
+show **totals over the dashboard's selected time range** (`increase(...[$__range])`)
+rather than req/s, and the p95 panels are computed over `$__range` too — so they
+stay populated for bursty, low-frequency interactive usage (a handful of tool
+calls, then idle). Widen the time picker (top-right) to see more history. Enable
+it as a Grafana-sidecar-discovered ConfigMap:
 ```yaml
 grafanaDashboard:
   enabled: true
@@ -59,7 +64,7 @@ you pick.
 
 ## Useful queries
 - Tool error rate: `sum(rate(kmcp_tool_calls_total{result!="ok"}[5m])) by (tool)`
-- RBAC denials: `sum(rate(kmcp_tool_calls_total{result="forbidden"}[5m])) by (cluster)`
+- RBAC denials: `sum(rate(kmcp_tool_calls_total{result="forbidden"}[5m])) by (mcp_cluster)`
 - Auth 401s: `sum(rate(kmcp_auth_requests_total{result="deny"}[5m]))`
 - Apiserver 5xx per cluster: `sum(rate(rest_client_requests_total{code=~"5.."}[5m])) by (host)`
 - Cluster down: `kmcp_cluster_up == 0`
