@@ -1,7 +1,9 @@
-# Binaries
+# Binaries (anchored to repo root so we don't accidentally ignore the Helm
+# chart dir deploy/helm/kubernetes-mcp/ or other paths of the same name).
 /bin/
 /dist/
-kubernetes-mcp
+/kubernetes-mcp
+/kubernetes-mcp-server
 
 # Test artifacts
 *.out

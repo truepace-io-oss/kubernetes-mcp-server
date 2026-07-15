@@ -1,0 +1,95 @@
+{{- $root := . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubernetes-mcp.fullname" . }}
+  labels:
+    {{- include "kubernetes-mcp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kubernetes-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kubernetes-mcp.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "kubernetes-mcp.serviceAccountName" . }}
+      {{- if or .Values.imagePullSecret.esoRef .Values.imagePullSecret.existingSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.existingSecret | default (printf "%s-pull" (include "kubernetes-mcp.fullname" .)) }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: kubernetes-mcp
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["--config", "/etc/kmcp/config.yaml"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 15
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kmcp/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            {{- range .Values.remoteClusters }}
+            - name: cluster-{{ .name }}
+              mountPath: /etc/kmcp/clusters/{{ .name }}
+              readOnly: true
+            {{- end }}
+            {{- if .Values.auth.enabled }}
+            {{- range .Values.auth.static.tokens }}
+            - name: auth-{{ .name }}
+              mountPath: /etc/kmcp/auth/{{ .name }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "kubernetes-mcp.fullname" . }}
+        {{- range .Values.remoteClusters }}
+        - name: cluster-{{ .name }}
+          secret:
+            secretName: {{ .existingSecret | default (include "kubernetes-mcp.remoteSecretName" (dict "root" $root "cluster" .)) }}
+        {{- end }}
+        {{- if .Values.auth.enabled }}
+        {{- range .Values.auth.static.tokens }}
+        - name: auth-{{ .name }}
+          secret:
+            secretName: {{ .existingSecret | default (printf "%s-auth-%s" (include "kubernetes-mcp.fullname" $root) .name) }}
+        {{- end }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

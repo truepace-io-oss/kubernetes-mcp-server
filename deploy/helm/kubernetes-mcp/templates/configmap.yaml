@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kubernetes-mcp.fullname" . }}
+  labels:
+    {{- include "kubernetes-mcp.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    listenAddr: {{ .Values.config.listenAddr | quote }}
+    logLevel: {{ .Values.config.logLevel | quote }}
+    readOnly: {{ .Values.config.readOnly }}
+    defaultCluster: {{ .Values.config.defaultCluster | quote }}
+    clusters:
+    {{- if .Values.localCluster.enabled }}
+      - name: {{ .Values.localCluster.name | quote }}
+        inCluster: true
+        readOnly: {{ .Values.localCluster.readOnly }}
+        defaultNamespace: {{ .Values.localCluster.defaultNamespace | quote }}
+    {{- end }}
+    {{- range .Values.remoteClusters }}
+      - name: {{ .name | quote }}
+        server: {{ .server | quote }}
+        certificateAuthorityFile: /etc/kmcp/clusters/{{ .name }}/ca.crt
+        tokenFile: /etc/kmcp/clusters/{{ .name }}/token
+        readOnly: {{ default false .readOnly }}
+        defaultNamespace: {{ default "" .defaultNamespace | quote }}
+    {{- end }}
+    {{- if .Values.auth.enabled }}
+    auth:
+      enabled: true
+      static:
+        enabled: {{ .Values.auth.static.enabled }}
+        tokens:
+        {{- range .Values.auth.static.tokens }}
+          - name: {{ .name | quote }}
+            tokenFile: /etc/kmcp/auth/{{ .name }}/token
+        {{- end }}
+      oidc:
+        enabled: {{ .Values.auth.oidc.enabled }}
+        issuer: {{ .Values.auth.oidc.issuer | quote }}
+        audience: {{ .Values.auth.oidc.audience | quote }}
+        jwksUrl: {{ .Values.auth.oidc.jwksUrl | quote }}
+        groupsClaim: {{ .Values.auth.oidc.groupsClaim | quote }}
+        usernameClaim: {{ .Values.auth.oidc.usernameClaim | quote }}
+        resourceMetadata: {{ .Values.auth.oidc.resourceMetadata }}
+        requiredScopes: {{ toJson .Values.auth.oidc.requiredScopes }}
+        requiredGroups: {{ toJson .Values.auth.oidc.requiredGroups }}
+    {{- end }}

@@ -1,0 +1,90 @@
+{{- if .Values.localCluster.enabled }}
+{{- $sa := include "kubernetes-mcp.serviceAccountName" . }}
+{{- $fullname := include "kubernetes-mcp.fullname" . }}
+{{- $tier := .Values.localCluster.rbac.tier }}
+{{- if eq $tier "read-only" }}
+# Self-contained read-only access (deliberately excludes secrets).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullname }}-read-only
+  labels:
+    {{- include "kubernetes-mcp.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "nodes", "pods", "pods/log", "services", "configmaps", "events", "endpoints", "persistentvolumeclaims", "replicationcontrollers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullname }}-read-only
+  labels:
+    {{- include "kubernetes-mcp.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullname }}-read-only
+subjects:
+  - kind: ServiceAccount
+    name: {{ $sa }}
+    namespace: {{ .Release.Namespace }}
+{{- else if or (eq $tier "edit") (eq $tier "cluster-admin") }}
+# Reuse the cluster's built-in aggregated role.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullname }}-{{ $tier }}
+  labels:
+    {{- include "kubernetes-mcp.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $tier }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $sa }}
+    namespace: {{ .Release.Namespace }}
+{{- else if eq $tier "fine-grained" }}
+{{- range $ns := .Values.localCluster.rbac.fineGrained.namespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullname }}-fine-grained
+  namespace: {{ $ns }}
+  labels:
+    {{- include "kubernetes-mcp.labels" $ | nindent 4 }}
+rules:
+{{ toYaml $.Values.localCluster.rbac.fineGrained.rules | indent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullname }}-fine-grained
+  namespace: {{ $ns }}
+  labels:
+    {{- include "kubernetes-mcp.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullname }}-fine-grained
+subjects:
+  - kind: ServiceAccount
+    name: {{ $sa }}
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,26 @@
+kubernetes-mcp {{ .Chart.AppVersion }} deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+The MCP endpoint is served at path /mcp on:
+  Service: {{ include "kubernetes-mcp.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+{{- if .Values.ingress.enabled }}
+  Ingress: https://{{ .Values.ingress.host }}/mcp   (class: {{ .Values.ingress.className }})
+{{- end }}
+
+Managed clusters:
+{{- if .Values.localCluster.enabled }}
+  - {{ .Values.localCluster.name }} (in-cluster, RBAC tier: {{ .Values.localCluster.rbac.tier }})
+{{- end }}
+{{- range .Values.remoteClusters }}
+  - {{ .name }} (remote: {{ .server }})
+{{- end }}
+
+⚠️  The streamable-HTTP transport has NO built-in authentication. Only expose it
+    on a trusted / internal ingress (e.g. WireGuard). Never expose it publicly.
+
+Add it to an AI agent (Claude Code) with:
+{{- if .Values.ingress.enabled }}
+  claude mcp add --transport http {{ .Release.Name }} https://{{ .Values.ingress.host }}/mcp
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "kubernetes-mcp.fullname" . }} 9090:{{ .Values.service.port }}
+  claude mcp add --transport http {{ .Release.Name }} http://127.0.0.1:9090/mcp
+{{- end }}

@@ -1,0 +1,38 @@
+{{- if .Values.ingress.enabled }}
+{{- $fullname := include "kubernetes-mcp.fullname" . }}
+{{- $tlsSecret := .Values.ingress.tls.secretName | default (printf "%s-tls" $fullname) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "kubernetes-mcp.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if .Values.ingress.basicAuth.enabled }}
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: {{ .Values.ingress.basicAuth.existingSecret | default (printf "%s-basic-auth" $fullname) }}
+    nginx.ingress.kubernetes.io/auth-realm: "kubernetes-mcp"
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}
+                port:
+                  number: {{ .Values.service.port }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ $tlsSecret }}
+  {{- end }}
+{{- end }}

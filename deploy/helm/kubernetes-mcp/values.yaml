@@ -1,0 +1,153 @@
+# Default values for kubernetes-mcp.
+
+image:
+  repository: ghcr.io/truepace-io-oss/kubernetes-mcp-server   # set to ghcr.io/<your-org>/kubernetes-mcp-server
+  tag: ""            # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+# Image pull secret. When externalSecrets.enabled and imagePullSecret.esoRef are
+# set, a dockerconfigjson Secret is created via ESO; otherwise set an existing
+# secret name in imagePullSecret.existingSecret.
+imagePullSecret:
+  esoRef: ""         # Bitwarden (or other backend) UUID for a dockerconfigjson
+  existingSecret: "" # use a pre-existing pull secret instead
+
+replicaCount: 1
+
+# ---- Server configuration (rendered into a ConfigMap as config.yaml) --------
+config:
+  listenAddr: "0.0.0.0:9090"
+  logLevel: "info"          # debug|info|warn|error
+  readOnly: false           # global kill-switch for all mutating tools
+  defaultCluster: "local"   # must match a cluster name below
+
+# ---- Agent → MCP authentication (client-side link) --------------------------
+# Independent of cluster auth. Disabled by default (protect via internal ingress).
+# When enabled, always run behind TLS.
+auth:
+  enabled: false
+  # (1) Shared bearer tokens. Each token's secret is provided via ESO (default)
+  #     or an existing Secret; it is mounted at /etc/kmcp/auth/<name>/token.
+  static:
+    enabled: false
+    tokens: []
+      # - name: ci
+      #   eso:
+      #     ref: <backend-uuid>       # ESO ExternalSecret → key `token`
+      # - name: legacy
+      #   existingSecret: my-secret   # must contain key `token`
+  # (2) OIDC resource server (Authentik / Keycloak). Needs no secret — JWKS is
+  #     public.
+  oidc:
+    enabled: false
+    issuer: ""                # Authentik: .../application/o/<slug>/ ; Keycloak: .../realms/<realm>
+    audience: ""              # == this MCP's public URL == token `aud`
+    jwksUrl: ""
+    requiredScopes: []
+    requiredGroups: []
+    groupsClaim: "groups"
+    usernameClaim: "preferred_username"
+    resourceMetadata: true
+
+# The in-cluster target: the cluster this pod runs in, reached via its own
+# ServiceAccount token (no secret needed). Its RBAC is configured under
+# localCluster.rbac.
+localCluster:
+  enabled: true
+  name: "local"
+  readOnly: false
+  defaultNamespace: ""
+  rbac:
+    # tier: read-only | edit | cluster-admin | fine-grained | none
+    tier: read-only
+    # Used only when tier == fine-grained: one Role+RoleBinding per namespace
+    # with the given rules.
+    fineGrained:
+      namespaces: []        # e.g. ["team-a", "team-b"]
+      rules:                # rbacv1 PolicyRule list
+        - apiGroups: [""]
+          resources: ["pods", "pods/log", "configmaps", "services", "events"]
+          verbs: ["get", "list", "watch"]
+        - apiGroups: ["apps"]
+          resources: ["deployments", "deployments/scale"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+
+# Remote clusters this instance also manages. Each entry mounts a Secret at
+# /etc/kmcp/clusters/<name>/{token,ca.crt}. With externalSecrets.enabled the
+# Secret is produced by ESO from the referenced backend keys; otherwise provide
+# an existing secret via `existingSecret`.
+remoteClusters: []
+  # - name: customer-a
+  #   server: https://api.customer-a.example.com:6443
+  #   readOnly: true
+  #   defaultNamespace: ""
+  #   eso:
+  #     tokenRef: <backend-uuid-for-token>
+  #     caRef: <backend-uuid-for-ca.crt>
+  #   # or, without ESO:
+  #   existingSecret: customer-a-creds   # must contain keys: token, ca.crt
+
+# ---- External Secrets Operator ---------------------------------------------
+externalSecrets:
+  enabled: true
+  secretStore:
+    kind: ClusterSecretStore      # or SecretStore
+    name: bitwarden-secretsmanager
+  refreshInterval: 1h
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 9090
+
+# Ingress. Disabled by default. The MCP transport has NO built-in auth — only
+# expose it on an internal (e.g. WireGuard) ingress, never publicly.
+ingress:
+  enabled: false
+  className: nginx-internal
+  host: ""                        # e.g. kubernetes-mcp.intern.tools.averion.zone
+  annotations:
+    # Streamable-HTTP needs long-lived, unbuffered connections.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    enabled: true
+    secretName: ""                # defaults to <fullname>-tls
+  # Optional HTTP basic-auth on top of the internal ingress.
+  basicAuth:
+    enabled: false
+    esoRef: ""                    # backend UUID for an htpasswd blob (key: auth)
+    existingSecret: ""
+
+serviceMonitor:
+  enabled: false
+  interval: "30s"
+  scrapeTimeout: "10s"
+  labels: {}
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Pod-level security context; the container runs as nonroot with a read-only
+# root filesystem (the distroless image ships no shell).
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
