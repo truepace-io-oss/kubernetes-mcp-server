@@ -140,7 +140,9 @@ grafanaDashboard:
   enabled: false
   label: grafana_dashboard      # sidecar discovery label
   labelValue: "1"
-  folder: ""                    # optional Grafana folder (grafana_folder annotation)
+  folder: ""                    # optional Grafana folder name
+  folderAnnotation: grafana_folder  # annotation key the sidecar reads for the folder
+                                     # (kube-prometheus-stack: grafana_folder ; victoria-metrics-k8s-stack: grafana-folder)
   namespace: ""                 # optional; default = release namespace
   extraLabels: {}
 

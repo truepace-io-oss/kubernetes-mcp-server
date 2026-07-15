@@ -15,11 +15,11 @@ curl http://localhost:9091/metrics
 
 | Metric | Type | Labels | Meaning |
 |--------|------|--------|---------|
-| `kmcp_tool_calls_total` | counter | `tool, cluster, result` | MCP tool calls. `result` = `ok\|error\|forbidden\|blocked` (`forbidden` = Kubernetes 403, `blocked` = read-only guard). |
-| `kmcp_tool_call_duration_seconds` | histogram | `tool, cluster` | Tool latency. |
+| `kmcp_tool_calls_total` | counter | `tool, mcp_cluster, result` | MCP tool calls. `result` = `ok\|error\|forbidden\|blocked` (`forbidden` = Kubernetes 403, `blocked` = read-only guard). |
+| `kmcp_tool_call_duration_seconds` | histogram | `tool, mcp_cluster` | Tool latency. |
 | `kmcp_auth_requests_total` | counter | `method, result` | Agent auth. `method` = `static\|oidc\|none`, `result` = `allow\|deny` (denies = 401s). |
-| `kmcp_cluster_up` | gauge | `cluster` | Apiserver reachability (1/0), from a 30s background probe. |
-| `kmcp_writes_blocked_total` | counter | `cluster, reason` | Mutations blocked by the guard (`global_readonly\|cluster_readonly`). |
+| `kmcp_cluster_up` | gauge | `mcp_cluster` | Apiserver reachability (1/0), from a 30s background probe. |
+| `kmcp_writes_blocked_total` | counter | `mcp_cluster, reason` | Mutations blocked by the guard (`global_readonly\|cluster_readonly`). |
 | `kmcp_build_info` | gauge=1 | `version, goversion` | Build info. |
 | `rest_client_requests_total` | counter | `host, code, method` | Kubernetes API calls per cluster **with status codes** (client-go). |
 | `rest_client_request_duration_seconds` | histogram | `host, verb` | Apiserver latency per cluster (client-go). |

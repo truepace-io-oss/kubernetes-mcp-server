@@ -14,7 +14,7 @@ metadata:
     {{- end }}
   {{- with .Values.grafanaDashboard.folder }}
   annotations:
-    grafana_folder: {{ . | quote }}
+    {{ $.Values.grafanaDashboard.folderAnnotation }}: {{ . | quote }}
   {{- end }}
 data:
   kubernetes-mcp.json: |-

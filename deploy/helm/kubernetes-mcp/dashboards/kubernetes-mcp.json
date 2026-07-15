@@ -50,7 +50,7 @@
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "colorMode": "background", "textMode": "value_and_name" },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "kmcp_cluster_up", "instant": true, "legendFormat": "{{cluster}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "kmcp_cluster_up", "instant": true, "legendFormat": "{{mcp_cluster}}" }
       ]
     },
     {
@@ -62,7 +62,7 @@
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15 }, "unit": "reqps" }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_auth_requests_total[5m])) by (method, result)", "legendFormat": "{{method}} {{result}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_auth_requests_total[$__rate_interval])) by (method, result)", "legendFormat": "{{method}} {{result}}" }
       ]
     },
     {
@@ -74,7 +74,7 @@
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15, "stacking": { "mode": "normal" } }, "unit": "reqps" }, "overrides": [] },
       "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_tool_calls_total[5m])) by (tool)", "legendFormat": "{{tool}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_tool_calls_total[$__rate_interval])) by (tool) or vector(0)", "legendFormat": "{{tool}}" }
       ]
     },
     {
@@ -94,7 +94,7 @@
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_tool_calls_total[5m])) by (result)", "legendFormat": "{{result}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_tool_calls_total[$__rate_interval])) by (result)", "legendFormat": "{{result}}" }
       ]
     },
     {
@@ -106,7 +106,7 @@
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "s" }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum(rate(kmcp_tool_call_duration_seconds_bucket[5m])) by (le, tool))", "legendFormat": "{{tool}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum(rate(kmcp_tool_call_duration_seconds_bucket[$__rate_interval])) by (le, tool))", "legendFormat": "{{tool}}" }
       ]
     },
     {
@@ -118,7 +118,7 @@
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15 }, "unit": "reqps" }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_writes_blocked_total[5m])) by (cluster, reason)", "legendFormat": "{{cluster}} {{reason}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kmcp_writes_blocked_total[$__rate_interval])) by (mcp_cluster, reason) or vector(0)", "legendFormat": "{{mcp_cluster}} {{reason}}" }
       ]
     },
     {
@@ -130,7 +130,7 @@
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15, "stacking": { "mode": "normal" } }, "unit": "reqps" }, "overrides": [] },
       "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(rest_client_requests_total[5m])) by (code)", "legendFormat": "{{code}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(rest_client_requests_total[$__rate_interval])) by (code)", "legendFormat": "{{code}}" }
       ]
     },
     {
@@ -142,7 +142,7 @@
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "s" }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum(rate(rest_client_request_duration_seconds_bucket[5m])) by (le, host))", "legendFormat": "{{host}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum(rate(rest_client_request_duration_seconds_bucket[$__rate_interval])) by (le, host))", "legendFormat": "{{host}}" }
       ]
     }
   ]

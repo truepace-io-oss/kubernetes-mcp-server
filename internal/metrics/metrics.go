@@ -16,16 +16,18 @@ import (
 )
 
 var (
+	// Label is mcp_cluster (not cluster) to avoid colliding with the monitoring
+	// stack's global `cluster` external label, which would otherwise overwrite it.
 	toolCalls = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kmcp_tool_calls_total",
 		Help: "MCP tool calls by tool, target cluster and result (ok|error|forbidden|blocked).",
-	}, []string{"tool", "cluster", "result"})
+	}, []string{"tool", "mcp_cluster", "result"})
 
 	toolDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "kmcp_tool_call_duration_seconds",
 		Help:    "MCP tool call latency by tool and cluster.",
 		Buckets: prometheus.DefBuckets,
-	}, []string{"tool", "cluster"})
+	}, []string{"tool", "mcp_cluster"})
 
 	authRequests = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kmcp_auth_requests_total",
@@ -35,12 +37,12 @@ var (
 	clusterUp = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kmcp_cluster_up",
 		Help: "Cluster apiserver reachability (1 = reachable, 0 = not), by cluster.",
-	}, []string{"cluster"})
+	}, []string{"mcp_cluster"})
 
 	writesBlocked = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "kmcp_writes_blocked_total",
 		Help: "Mutating tool calls blocked by the read-only guard, by cluster and reason.",
-	}, []string{"cluster", "reason"})
+	}, []string{"mcp_cluster", "reason"})
 
 	buildInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kmcp_build_info",
