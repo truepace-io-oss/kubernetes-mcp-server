@@ -119,3 +119,25 @@ jobs:
             VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ---- Helm chart release (OCI) --------------------------------------------
+  # On a vX.Y.Z tag, package the chart and push it to GHCR as an OCI artifact:
+  #   oci://ghcr.io/<owner>/charts/kubernetes-mcp:X.Y.Z
+  # The chart/app version is taken from the tag (v-prefix stripped).
+  publish-chart:
+    needs: [helm, build-and-push]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Package and push chart
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          helm package deploy/helm/kubernetes-mcp --version "$VERSION" --app-version "$VERSION"
+          helm push "kubernetes-mcp-${VERSION}.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"
