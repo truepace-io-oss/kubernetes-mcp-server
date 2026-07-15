@@ -137,9 +137,13 @@ resources:
     memory: 256Mi
 
 # Pod-level security context; the container runs as nonroot with a read-only
-# root filesystem (the distroless image ships no shell).
+# root filesystem (the distroless image ships no shell). runAsUser is the
+# numeric UID of the distroless "nonroot" user — required so Kubernetes can
+# verify runAsNonRoot (the image's USER is a name, not a number).
 podSecurityContext:
   runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
   seccompProfile:
     type: RuntimeDefault
 securityContext:
