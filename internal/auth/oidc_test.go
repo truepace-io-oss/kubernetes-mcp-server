@@ -176,4 +176,12 @@ func TestProtectedResourceMetadataUsesResource(t *testing.T) {
 	if got.Resource != "https://kubernetes-mcp.example.com/mcp" || len(got.AuthorizationServers) != 1 || got.AuthorizationServers[0] != m.iss {
 		t.Fatalf("unexpected metadata: %+v", got)
 	}
+
+	unauthenticated := httptest.NewRecorder()
+	b.Middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("unauthenticated request reached handler")
+	})).ServeHTTP(unauthenticated, httptest.NewRequest(http.MethodPost, "https://kubernetes-mcp.example.com/mcp", nil))
+	if got, want := unauthenticated.Header().Get("WWW-Authenticate"), `Bearer resource_metadata="https://kubernetes-mcp.example.com/.well-known/oauth-protected-resource"`; got != want {
+		t.Fatalf("WWW-Authenticate = %q, want %q", got, want)
+	}
 }

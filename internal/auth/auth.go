@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
@@ -70,7 +71,11 @@ func Build(ctx context.Context, cfg config.Auth) (*Built, error) {
 		}
 		if cfg.OIDC.ServeResourceMetadata() {
 			metaPath = resourceMetadataPath
-			opts.ResourceMetadataURL = resourceMetadataPath
+			metadataURL, err := protectedResourceMetadataURL(cfg.OIDC.ResourceIdentifier())
+			if err != nil {
+				return nil, err
+			}
+			opts.ResourceMetadataURL = metadataURL
 			md := &oauthex.ProtectedResourceMetadata{
 				Resource:               cfg.OIDC.ResourceIdentifier(),
 				AuthorizationServers:   []string{cfg.OIDC.Issuer},
@@ -93,6 +98,17 @@ func Build(ctx context.Context, cfg config.Auth) (*Built, error) {
 		MetadataHandler: metaHandler,
 		Description:     desc,
 	}, nil
+}
+
+func protectedResourceMetadataURL(resource string) (string, error) {
+	u, err := url.Parse(resource)
+	if err != nil {
+		return "", fmt.Errorf("parse OIDC resource %q: %w", resource, err)
+	}
+	if u.Scheme != "https" || u.Host == "" {
+		return "", fmt.Errorf("OIDC resource %q must be an absolute https URI", resource)
+	}
+	return (&url.URL{Scheme: u.Scheme, Host: u.Host, Path: resourceMetadataPath}).String(), nil
 }
 
 func passthrough(next http.Handler) http.Handler { return next }

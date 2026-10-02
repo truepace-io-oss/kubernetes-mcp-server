@@ -166,13 +166,10 @@ Then trigger login: `claude mcp login kubernetes-mcp` (or `/mcp` → *Authentica
 reset a bad state with `claude mcp logout kubernetes-mcp`. Requires a recent
 Claude Code (pre-registered-client OAuth support, ~v2.1.186+).
 
-> **Why `authServerMetadataUrl` is needed today:** the MCP's `401` currently
-> advertises a *relative* `resource_metadata` path in `WWW-Authenticate`. Some
-> clients (Claude Code with a manual `client_id`) then default the authorization
-> server to the MCP's own origin and hit a non-existent `/authorize`. Pointing
-> `authServerMetadataUrl` at the provider's OIDC discovery fixes it. A future
-> release will emit an absolute `resource_metadata` URL so this override becomes
-> unnecessary.
+The MCP advertises an absolute `resource_metadata` URL in `WWW-Authenticate`, so
+clients can discover the authorization server from the protected-resource
+metadata. `authServerMetadataUrl` may still be supplied as an explicit client-side
+override.
 
 ## 5. Both at once
 
