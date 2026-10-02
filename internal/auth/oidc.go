@@ -28,7 +28,8 @@ func newOIDCVerifier(ctx context.Context, cfg config.AuthOIDC) (*oidcVerifier, e
 	if err != nil {
 		return nil, fmt.Errorf("auth.oidc: discover issuer %q: %w", cfg.Issuer, err)
 	}
-	// ClientID here is the expected audience (RFC 8707 resource indicator).
+	// ClientID is the expected access-token audience. It is intentionally
+	// independent from the RFC 9728 protected-resource identifier.
 	oidcCfg := &oidc.Config{ClientID: cfg.Audience}
 	verifier := provider.VerifierContext(ctx, oidcCfg)
 	if cfg.JWKSURL != "" {

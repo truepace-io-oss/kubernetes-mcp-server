@@ -47,7 +47,8 @@ auth:
   oidc:
     enabled: false
     issuer: ""                # Authentik: .../application/o/<slug>/ ; Keycloak: .../realms/<realm>
-    audience: ""              # == this MCP's public URL == token `aud`
+    audience: ""              # expected access-token `aud` (e.g. Authentik client_id)
+    resource: ""              # canonical public MCP URL, e.g. https://kubernetes-mcp.example.com/mcp
     jwksUrl: ""
     requiredScopes: []
     requiredGroups: []

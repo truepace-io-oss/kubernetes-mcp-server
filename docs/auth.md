@@ -62,7 +62,8 @@ auth:
     # Authentik: https://authentik.example.com/application/o/<slug>/
     # Keycloak:  https://kc.example.com/realms/<realm>
     issuer: "https://authentik.example.com/application/o/kubernetes-mcp/"
-    audience: "https://kubernetes-mcp.example.com"   # == token `aud` (RFC 8707)
+    audience: "kubernetes-mcp"                       # expected access-token `aud`
+    resource: "https://kubernetes-mcp.example.com/mcp" # RFC 9728 resource identifier
     requiredScopes: ["mcp.access"]     # optional
     requiredGroups: ["k8s-admins"]     # optional
     groupsClaim: "groups"
@@ -93,7 +94,7 @@ sequenceDiagram
     C->>M: POST /mcp (no token)
     M-->>C: 401 + WWW-Authenticate (resource_metadata URL)
     C->>M: GET /.well-known/oauth-protected-resource
-    M-->>C: { authorization_servers: [issuer], resource: audience }
+    M-->>C: { authorization_servers: [issuer], resource: resource }
     C->>A: discover AS metadata + get a client (DCR, or a pre-registered client_id)
     C->>U: opens browser → login + consent  (the UI, first use only)
     U->>A: authenticate / approve
@@ -126,7 +127,8 @@ Authentik has **no Dynamic Client Registration**, so you must pre-register a
 ### Keycloak
 1. Realm → **Client** (public, PKCE, standard flow). Issuer
    `https://kc.example.com/realms/<realm>`.
-2. Add an **Audience mapper** so tokens carry `aud = <MCP url>` == `oidc.audience`.
+2. Add an **Audience mapper** so tokens carry the value configured as
+   `oidc.audience`. Configure `oidc.resource` independently as the public MCP URL.
 3. Add a **groups** mapper for `requiredGroups`. Enable Dynamic Client
    Registration or pre-register the redirect URI.
 

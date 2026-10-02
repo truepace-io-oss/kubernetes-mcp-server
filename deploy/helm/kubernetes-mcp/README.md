@@ -86,7 +86,8 @@ auth:
   oidc:
     enabled: true
     issuer: https://authentik.example.com/application/o/kubernetes-mcp/
-    audience: https://kubernetes-mcp.intern.tools.averion.zone
+    audience: kubernetes-mcp
+    resource: https://kubernetes-mcp.example.com/mcp
     requiredGroups: ["k8s-admins"]     # optional
 ```
 Both can be enabled together. Always pair auth with TLS (the ingress below).

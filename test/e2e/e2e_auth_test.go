@@ -132,7 +132,8 @@ func TestE2EAuthStatic(t *testing.T) {
 
 func TestE2EAuthOIDC(t *testing.T) {
 	iss := newE2EMockIssuer(t)
-	const aud = "https://kmcp.e2e"
+	const aud = "kubernetes-mcp"
+	const resource = "https://kubernetes-mcp.e2e/mcp"
 	clusterTok := readerToken(t, "e2e-auth-oidc", "mcp-sa2", "e2e-auth-oidc-binding")
 
 	// go-oidc must trust the mock issuer's self-signed TLS cert during discovery.
@@ -143,6 +144,7 @@ func TestE2EAuthOIDC(t *testing.T) {
 			Enabled:  true,
 			Issuer:   iss.url,
 			Audience: aud,
+			Resource: resource,
 		},
 	})
 
@@ -153,8 +155,8 @@ func TestE2EAuthOIDC(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
-	if !strings.Contains(string(body), iss.url) || !strings.Contains(string(body), aud) {
-		t.Fatalf("metadata missing issuer/audience: %s", body)
+	if !strings.Contains(string(body), iss.url) || !strings.Contains(string(body), resource) {
+		t.Fatalf("metadata missing issuer/resource: %s", body)
 	}
 
 	// No token → rejected.

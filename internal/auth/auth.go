@@ -72,7 +72,7 @@ func Build(ctx context.Context, cfg config.Auth) (*Built, error) {
 			metaPath = resourceMetadataPath
 			opts.ResourceMetadataURL = resourceMetadataPath
 			md := &oauthex.ProtectedResourceMetadata{
-				Resource:               cfg.OIDC.Audience,
+				Resource:               cfg.OIDC.ResourceIdentifier(),
 				AuthorizationServers:   []string{cfg.OIDC.Issuer},
 				BearerMethodsSupported: []string{"header"},
 				ScopesSupported:        cfg.OIDC.RequiredScopes,

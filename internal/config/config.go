@@ -8,6 +8,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -57,6 +58,7 @@ type AuthOIDC struct {
 	Enabled        bool     `json:"enabled"`
 	Issuer         string   `json:"issuer"`
 	Audience       string   `json:"audience"`
+	Resource       string   `json:"resource,omitempty"`
 	JWKSURL        string   `json:"jwksUrl,omitempty"`
 	RequiredScopes []string `json:"requiredScopes,omitempty"`
 	RequiredGroups []string `json:"requiredGroups,omitempty"`
@@ -71,6 +73,16 @@ type AuthOIDC struct {
 // should be served (defaults to true).
 func (o AuthOIDC) ServeResourceMetadata() bool {
 	return o.ResourceMetadata == nil || *o.ResourceMetadata
+}
+
+// ResourceIdentifier returns the RFC 9728 protected-resource identifier. The
+// audience fallback keeps existing installations working when their token
+// audience is already an absolute resource URI.
+func (o AuthOIDC) ResourceIdentifier() string {
+	if o.Resource != "" {
+		return o.Resource
+	}
+	return o.Audience
 }
 
 // ClusterConfig describes how to reach and authenticate to one cluster.
@@ -192,6 +204,9 @@ func (c *Config) applyEnv() {
 	if v := os.Getenv("KMCP_AUTH_OIDC_AUDIENCE"); v != "" {
 		c.Auth.OIDC.Audience = v
 	}
+	if v := os.Getenv("KMCP_AUTH_OIDC_RESOURCE"); v != "" {
+		c.Auth.OIDC.Resource = v
+	}
 }
 
 func (c *Config) applyDefaults() {
@@ -311,6 +326,13 @@ func (a Auth) validate() error {
 		}
 		if a.OIDC.Audience == "" {
 			return fmt.Errorf("auth.oidc.enabled is true but audience is empty")
+		}
+		if a.OIDC.ServeResourceMetadata() {
+			resource := a.OIDC.ResourceIdentifier()
+			u, err := url.Parse(resource)
+			if err != nil || !u.IsAbs() || u.Scheme != "https" || u.Host == "" || strings.Contains(resource, "#") {
+				return fmt.Errorf("auth.oidc.resource must be an absolute https URI without a fragment when resource metadata is enabled (effective value %q)", resource)
+			}
 		}
 	}
 	return nil

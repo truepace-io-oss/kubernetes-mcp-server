@@ -53,7 +53,8 @@ auth:
     # Authentik: https://authentik.example.com/application/o/<app-slug>/
     # Keycloak:  https://kc.example.com/realms/<realm>
     issuer: ""
-    audience: ""            # RFC 8707 resource id == this MCP's public URL == token `aud`
+    audience: ""            # expected access-token `aud` (e.g. Authentik client_id)
+    resource: ""            # canonical public MCP URL, e.g. https://kubernetes-mcp.example.com/mcp
     jwksUrl: ""            # optional; default discovered from the issuer
     requiredScopes: []      # e.g. ["mcp.access"]
     requiredGroups: []      # e.g. ["k8s-admins"]

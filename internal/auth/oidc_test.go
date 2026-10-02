@@ -75,7 +75,7 @@ func (m *mockIssuer) mint(t *testing.T, claims map[string]any) string {
 
 func TestOIDCVerifier(t *testing.T) {
 	m := newMockIssuer(t)
-	const aud = "https://kmcp.example.com"
+	const aud = "kubernetes-mcp"
 
 	v, err := newOIDCVerifier(context.Background(), config.AuthOIDC{
 		Enabled:        true,
@@ -144,4 +144,36 @@ func TestOIDCVerifier(t *testing.T) {
 			t.Fatal("expected missing-group rejection")
 		}
 	})
+}
+
+func TestProtectedResourceMetadataUsesResource(t *testing.T) {
+	m := newMockIssuer(t)
+	b, err := Build(context.Background(), config.Auth{
+		Enabled: true,
+		OIDC: config.AuthOIDC{
+			Enabled:  true,
+			Issuer:   m.iss,
+			Audience: "kubernetes-mcp",
+			Resource: "https://kubernetes-mcp.example.com/mcp",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build auth: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	b.MetadataHandler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, b.MetadataPath, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("metadata status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got struct {
+		Resource             string   `json:"resource"`
+		AuthorizationServers []string `json:"authorization_servers"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode metadata: %v", err)
+	}
+	if got.Resource != "https://kubernetes-mcp.example.com/mcp" || len(got.AuthorizationServers) != 1 || got.AuthorizationServers[0] != m.iss {
+		t.Fatalf("unexpected metadata: %+v", got)
+	}
 }

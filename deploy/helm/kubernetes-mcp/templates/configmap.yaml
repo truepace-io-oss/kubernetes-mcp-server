@@ -40,6 +40,7 @@ data:
         enabled: {{ .Values.auth.oidc.enabled }}
         issuer: {{ .Values.auth.oidc.issuer | quote }}
         audience: {{ .Values.auth.oidc.audience | quote }}
+        resource: {{ .Values.auth.oidc.resource | quote }}
         jwksUrl: {{ .Values.auth.oidc.jwksUrl | quote }}
         groupsClaim: {{ .Values.auth.oidc.groupsClaim | quote }}
         usernameClaim: {{ .Values.auth.oidc.usernameClaim | quote }}
